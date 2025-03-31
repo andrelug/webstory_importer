@@ -91,9 +91,6 @@ function wsi_render_admin_page() {
             <a href="<?php echo esc_url(add_query_arg('tab', 'import', remove_query_arg('paged'))); ?>" class="nav-tab <?php echo $active_tab == 'import' ? 'nav-tab-active' : ''; ?>">
                 <?php esc_html_e('Import New Story', 'web-story-importer'); ?>
             </a>
-            <a href="<?php echo esc_url(add_query_arg('tab', 'published', remove_query_arg('paged'))); ?>" class="nav-tab <?php echo $active_tab == 'published' ? 'nav-tab-active' : ''; ?>">
-                <?php esc_html_e('Import Published Story', 'web-story-importer'); ?>
-            </a>
             <a href="<?php echo esc_url(add_query_arg('tab', 'imported', remove_query_arg('paged'))); ?>" class="nav-tab <?php echo $active_tab == 'imported' ? 'nav-tab-active' : ''; ?>">
                 <?php esc_html_e('Imported Stories', 'web-story-importer'); ?>
             </a>
@@ -102,9 +99,6 @@ function wsi_render_admin_page() {
         <div class="tab-content">
             <?php
             switch ($active_tab) {
-                case 'published':
-                    wsi_render_published_import_tab();
-                    break;
                 case 'imported':
                     wsi_render_imported_stories_tab();
                     break;
@@ -186,72 +180,6 @@ function wsi_render_import_tab() {
                     <span class="wsi-step-text"><?php esc_html_e('Make sure the HTML file references the assets using relative paths (e.g., "assets/image.jpg").', 'web-story-importer'); ?></span>
                 </li>
             </ol>
-        </div>
-    </div>
-    <?php
-}
-
-/**
- * Render the published story import tab.
- */
-function wsi_render_published_import_tab() {
-    ?>
-    <div class="wsi-tab-section">
-        <div class="wsi-card wsi-import-card">
-            <h2><?php esc_html_e('Import a Published Web Story', 'web-story-importer'); ?></h2>
-            <p class="wsi-intro-text"><?php esc_html_e('Enter the URL of a published Web Story to import it into your WordPress site.', 'web-story-importer'); ?></p>
-            
-            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="wsi-import-form">
-                <?php wp_nonce_field('wsi_import_url_action', 'wsi_import_url_nonce'); ?>
-                <input type="hidden" name="action" value="wsi_handle_url_import">
-                
-                <div class="wsi-form-group">
-                    <label for="wsi_story_url" class="wsi-label">
-                        <?php esc_html_e('Web Story URL', 'web-story-importer'); ?>
-                    </label>
-                    <div class="wsi-url-input-wrapper">
-                        <span class="dashicons dashicons-admin-links"></span>
-                        <input type="url" id="wsi_story_url" name="wsi_story_url" required class="regular-text wsi-text-input" 
-                               placeholder="https://example.com/web-stories/my-story/">
-                    </div>
-                    <p class="description">
-                        <?php esc_html_e('Enter the full URL of the published Web Story you want to import.', 'web-story-importer'); ?>
-                    </p>
-                </div>
-                
-                <div class="wsi-import-progress" style="display: none;">
-                    <div class="wsi-progress-bar">
-                        <div class="wsi-progress-bar-inner"></div>
-                    </div>
-                    <div class="wsi-progress-status">
-                        <span class="wsi-progress-text"><?php esc_html_e('Importing...', 'web-story-importer'); ?></span>
-                    </div>
-                </div>
-                
-                <div class="wsi-submit-container">
-                    <button type="submit" class="button button-primary wsi-submit-button">
-                        <span class="dashicons dashicons-download"></span> <?php esc_html_e('Import Story from URL', 'web-story-importer'); ?>
-                    </button>
-                </div>
-            </form>
-        </div>
-        
-        <div class="wsi-card wsi-help-card">
-            <h3><?php esc_html_e('Notes about URL import', 'web-story-importer'); ?></h3>
-            <ul class="wsi-help-steps">
-                <li>
-                    <span class="wsi-step-number"><span class="dashicons dashicons-yes-alt"></span></span>
-                    <span class="wsi-step-text"><?php esc_html_e('The story must be publicly accessible and correctly formatted as an AMP Web Story.', 'web-story-importer'); ?></span>
-                </li>
-                <li>
-                    <span class="wsi-step-number"><span class="dashicons dashicons-images-alt2"></span></span>
-                    <span class="wsi-step-text"><?php esc_html_e('All media files will be downloaded and imported into your media library.', 'web-story-importer'); ?></span>
-                </li>
-                <li>
-                    <span class="wsi-step-number"><span class="dashicons dashicons-info"></span></span>
-                    <span class="wsi-step-text"><?php esc_html_e('Some external resources might not import correctly depending on their availability.', 'web-story-importer'); ?></span>
-                </li>
-            </ul>
         </div>
     </div>
     <?php
@@ -549,98 +477,3 @@ function wsi_handle_upload_action() {
     exit;
 }
 add_action( 'admin_post_wsi_handle_upload', 'wsi_handle_upload_action' );
-
-/**
- * Handle the URL import via admin-post.php.
- */
-function wsi_handle_url_import() {
-    // Verify nonce
-    if (!isset($_POST['wsi_import_url_nonce']) || !wp_verify_nonce($_POST['wsi_import_url_nonce'], 'wsi_import_url_action')) {
-        wp_die(__('Security check failed. Please try again.', 'web-story-importer'));
-    }
-    
-    // Check user capability
-    if (!current_user_can('upload_files')) {
-        wp_die(__('You do not have permission to import stories.', 'web-story-importer'));
-    }
-    
-    // Check if URL was provided
-    if (empty($_POST['wsi_story_url'])) {
-        add_settings_error(
-            'wsi_url_empty',
-            __('Please enter a valid URL.', 'web-story-importer'),
-            'error'
-        );
-        set_transient('settings_errors', get_settings_errors(), 30);
-        wp_redirect(admin_url('admin.php?page=web-story-importer&tab=published'));
-        exit;
-    }
-    
-    $story_url = esc_url_raw($_POST['wsi_story_url']);
-    
-    // Fetch the HTML content from the URL
-    $response = wp_remote_get($story_url);
-    
-    if (is_wp_error($response)) {
-        add_settings_error(
-            'wsi_fetch_error',
-            sprintf(__('Error fetching story from URL: %s', 'web-story-importer'), $response->get_error_message()),
-            'error'
-        );
-        set_transient('settings_errors', get_settings_errors(), 30);
-        wp_redirect(admin_url('admin.php?page=web-story-importer&tab=published'));
-        exit;
-    }
-    
-    $html_content = wp_remote_retrieve_body($response);
-    
-    if (empty($html_content)) {
-        add_settings_error(
-            'wsi_empty_content',
-            __('The URL did not return any content.', 'web-story-importer'),
-            'error'
-        );
-        set_transient('settings_errors', get_settings_errors(), 30);
-        wp_redirect(admin_url('admin.php?page=web-story-importer&tab=published'));
-        exit;
-    }
-    
-    // Import assets from the URL
-    $base_url = trailingslashit(dirname($story_url));
-    wsi_import_assets_from_url($html_content, $base_url);
-    
-    // Convert HTML to Web Story JSON
-    $story_data = wsi_convert_html_to_story_json($html_content);
-    
-    // Get the story title and original filename
-    $story_title = isset($story_data['title']) ? $story_data['title'] : 'Imported Story';
-    $original_filename = basename($story_url);
-    
-    // Create the story post
-    $story_json = wp_json_encode($story_data);
-    $post_id = wsi_create_story_post($html_content, $story_json, $story_url);
-    
-    // Track import in our database using our helper function
-    wsi_log_imported_story(
-        $story_title,
-        $story_url,
-        $post_id,
-        'completed',
-        ''
-    );
-    
-    // Redirect to the list of imported stories
-    add_settings_error(
-        'wsi_import_success',
-        sprintf(
-            __('Story imported successfully from URL! <a href="%s">Edit Story</a> | <a href="%s">View Story</a>', 'web-story-importer'),
-            get_edit_post_link($post_id),
-            get_permalink($post_id)
-        ),
-        'success'
-    );
-    set_transient('settings_errors', get_settings_errors(), 30);
-    wp_redirect(admin_url('admin.php?page=web-story-importer&tab=imported'));
-    exit;
-}
-add_action('admin_post_wsi_handle_url_import', 'wsi_handle_url_import');

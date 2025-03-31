@@ -3,7 +3,7 @@
  * Plugin Name: Web Story Importer
  * Plugin URI: https://github.com/adamizer/web-story-importer
  * Description: Import Web Stories from various formats into the Google Web Stories plugin
- * Version: 1.0.36
+ * Version: 1.0.38
  * Author: Adam Zielinski
  * Author URI: https://adamizer.com
  * License: GPL-2.0+
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
 }
 
-define( 'WSI_VERSION', '1.0.36' );
+define( 'WSI_VERSION', '1.0.38' );
 define( 'WSI_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WSI_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'WSI_PLUGIN_FILE', __FILE__ );

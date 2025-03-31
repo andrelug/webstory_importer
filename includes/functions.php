@@ -600,25 +600,85 @@ function wsi_parse_element( $element_node, $xpath, &$id_counter ) {
         case 'h6':
             $element_data['type'] = 'text';
             $element_data['tagName'] = $tag_name;
-            $element_data['content'] = $element_node->nodeValue; // Get text content
-            // Extract font size, family, alignment, color etc. from styles
-            $element_data['fontSize'] = isset( $styles['font-size'] ) ? intval( $styles['font-size'] ) : 24; // Default
-            // Create proper font object structure with family property
-            $element_data['font'] = [
-                'family' => $styles['font-family'] ?? 'Roboto' // Default
-            ];
-            $element_data['textAlign'] = $styles['text-align'] ?? 'left';
-            $element_data['color'] = ['color' => $styles['color'] ?? '#000000']; // Basic color
-             // Background color (might be complex with gradients)
-            if (isset($styles['background-color'])) {
-                $element_data['backgroundColor'] = ['color' => $styles['background-color']];
+            $content = '';
+            foreach ($element_node->childNodes as $child) {
+                $content .= $element_node->ownerDocument->saveHTML($child);
             }
-             // Padding? Line height?
-            $element_data['padding'] = [
-                'vertical' => isset($styles['padding-top']) ? intval($styles['padding-top']) : (isset($styles['padding']) ? intval($styles['padding']) : 0),
-                'horizontal' => isset($styles['padding-left']) ? intval($styles['padding-left']) : (isset($styles['padding']) ? intval($styles['padding']) : 0),
-                 'locked' => true // Assume locked padding
+            $content = trim($content);
+
+            // If content is empty after trimming, skip this element
+            if (empty($content)) {
+                return [];
+            }
+
+            $element_data['content'] = $content;
+
+            // --- Basic Style Mapping (Improved Placeholder) ---
+            $styles = [];
+            $inline_style_attr = $element_node->getAttribute('style');
+            if ($inline_style_attr) {
+                $styles = wsi_parse_inline_style($inline_style_attr); // Use helper function if available
+            }
+
+            // Default styles
+            $font_size = 24;
+            $line_height = 1.3;
+            $font_weight = 400;
+            $font_family = 'Roboto'; // Default
+            $text_align = 'left';
+            $color = '#FFFFFF'; // Default
+
+            // Tag-based defaults
+            if ($tag_name === 'h1' || $tag_name === 'h2') {
+                 $font_size = ($tag_name === 'h1') ? 56 : 44;
+                 $font_weight = 700;
+            }
+
+            // Class-based overrides (Example - needs more robust parsing)
+            $class_attr = $element_node->getAttribute('class');
+            if (strpos($class_attr, 'page-title') !== false) {
+                 $font_size = ($tag_name === 'h1') ? 56 : 44; // Redundant based on tag default, but example
+                 $font_weight = 700;
+                 // TODO: Potentially parse specific font/color defined for .page-title in <style>
+            }
+             if (strpos($class_attr, 'page-description') !== false) {
+                 $font_size = 24;
+                 $font_weight = 400;
+                 // TODO: Potentially parse specific font/color defined for .page-description in <style>
+            }
+
+            // Apply inline styles over defaults/class styles
+            $font_family = $styles['font-family'] ?? $font_family;
+            $font_size = intval($styles['font-size'] ?? $font_size);
+            $line_height = floatval($styles['line-height'] ?? $line_height);
+            $font_weight = $styles['font-weight'] ?? $font_weight;
+            $text_align = $styles['text-align'] ?? $text_align;
+            if (isset($styles['color'])) {
+                $color = $styles['color'];
+            }
+
+            // TODO: Convert font weight (e.g., 'bold') to numeric if needed
+            // TODO: Parse font size units (px, em) and convert to px
+            // TODO: Extract font service (e.g., google fonts) if specified
+
+            // --- Calculate Position & Dimensions (Simplified Stacking) ---
+            // Estimate height based on font size (very rough)
+            $estimated_height = $font_size * $line_height * 1.2; // Add some padding
+
+            $element_data['x'] = 0.05 * 100; // 5% from left
+            $element_data['y'] = 0.4 * 100; // 40% from top
+            $element_data['width'] = 0.9 * 100; // 90% width
+            $element_data['height'] = $estimated_height;
+            $element_data['font'] = [
+                'family' => $font_family,
+                'service' => 'fonts.google.com', // Assume Google Fonts for now
+                'fallbacks' => ['sans-serif'],
+                'weight' => is_numeric($font_weight) ? intval($font_weight) : 400 // Ensure weight is numeric
             ];
+            $element_data['fontSize'] = $font_size;
+            $element_data['lineHeight'] = $line_height;
+            $element_data['textAlign'] = $text_align;
+            $element_data['color'] = ['color' => $color];
             break;
 
         case 'div':
@@ -803,7 +863,7 @@ function wsi_create_story_post( $html_content, $story_json, $original_html_path 
                     }
                     // Case 2: If it has a 'color' key that's a string, leave it as is
                     else if (isset($page['backgroundColor']['color']) && is_string($page['backgroundColor']['color'])) {
-                        // Nothing to do, format is already correct
+                        // Already in the correct format
                     }
                     // Case 3: If it has a 'color' key that's not a string and not an array
                     else if (isset($page['backgroundColor']['color']) && !is_array($page['backgroundColor']['color']) && !is_string($page['backgroundColor']['color'])) {
@@ -1624,6 +1684,10 @@ function wsi_import_assets($assets_dir) {
  * @return array Parsed page data.
  */
 function wsi_parse_page( $page_element, $xpath, $page_index ) {
+    // Define standard Web Story page dimensions
+    define('WSI_PAGE_WIDTH', 412);
+    define('WSI_PAGE_HEIGHT', 732);
+
     $page_id = $page_element->getAttribute( 'id' );
     if ( ! $page_id ) {
         $page_id = 'page-' . $page_index;
@@ -1651,13 +1715,25 @@ function wsi_parse_page( $page_element, $xpath, $page_index ) {
     
     // Process the fill layer first (background)
     $fill_layers = $xpath->query( './/amp-story-grid-layer[@template="fill"]', $page_element );
-    
-    if ( $fill_layers->length > 0 ) {
+
+    // Check if the query returned a valid NodeList
+    if ( $fill_layers && $fill_layers->length > 0 ) {
         foreach ( $fill_layers as $layer ) {
+            // Add check: Ensure $layer is a DOMElement
+            if ( !$layer instanceof DOMElement ) {
+                continue;
+            }
+
             // Look for background images
             $bg_images = $xpath->query( './/amp-img', $layer );
-            if ( $bg_images->length > 0 ) {
+            // Check if the query returned a valid NodeList
+            if ( $bg_images && $bg_images->length > 0 ) {
                 foreach ( $bg_images as $bg_image ) {
+                    // Add check: Ensure $bg_image is a DOMElement before calling methods on it
+                    if ( !$bg_image instanceof DOMElement ) {
+                        continue;
+                    }
+
                     $src = $bg_image->getAttribute( 'src' );
                     if ( $src ) {
                         $src_url = esc_url( $src );
@@ -1672,14 +1748,15 @@ function wsi_parse_page( $page_element, $xpath, $page_index ) {
                             'type' => 'image',
                             'x' => 0,
                             'y' => 0,
-                            'width' => 1,
-                            'height' => 1,
+                            'width' => WSI_PAGE_WIDTH,  // Use absolute width
+                            'height' => WSI_PAGE_HEIGHT, // Use absolute height
                             'resource' => [
                                 'id' => $attachment_id ? $attachment_id : 0,
                                 'src' => $src_url,
+                                'alt' => esc_attr( $bg_image->getAttribute('alt') ),
+                                'mimeType' => 'image/' . strtolower(pathinfo($src, PATHINFO_EXTENSION)), // Basic guess
                                 'width' => $width,
                                 'height' => $height,
-                                'mimeType' => 'image/' . strtolower( pathinfo( $src_url, PATHINFO_EXTENSION ) )
                             ],
                             'scale' => 100,
                             'focalX' => 50,
@@ -1695,14 +1772,16 @@ function wsi_parse_page( $page_element, $xpath, $page_index ) {
     // Look for gradient overlay divs
     $gradients = $xpath->query( './/div[contains(@class, "overlay-gradient")]', $page_element );
     if ( $gradients->length > 0 ) {
-        // Add a gradient overlay element
+        // Add a gradient overlay element using absolute coordinates
+        $gradient_height_ratio = 0.7; // Covers bottom 70%
+        $gradient_y_ratio = 1.0 - $gradient_height_ratio; // Starts at 30% from top
         $page_data['elements'][] = [
             'id' => $page_id . '-gradient-' . $element_id_counter++,
             'type' => 'shape',
             'x' => 0,
-            'y' => 0.3, // Start from 30% down the page
-            'width' => 1,
-            'height' => 0.7, // Cover bottom 70%
+            'y' => round(WSI_PAGE_HEIGHT * $gradient_y_ratio), // Absolute Y
+            'width' => WSI_PAGE_WIDTH,                       // Absolute width
+            'height' => round(WSI_PAGE_HEIGHT * $gradient_height_ratio), // Absolute height
             'mask' => [
                 'type' => 'rectangle'
             ],
@@ -1746,8 +1825,12 @@ function wsi_parse_page( $page_element, $xpath, $page_index ) {
     // Process any other images that aren't in the fill layer
     $content_images = $xpath->query( './/amp-story-grid-layer[not(@template="fill")]//amp-img', $page_element );
     
-    if ( $content_images->length > 0 ) {
+    if ( $content_images && $content_images->length > 0 ) {
         foreach ( $content_images as $index => $content_image ) {
+            if ( !$content_image instanceof DOMElement ) {
+                continue; // Skip invalid nodes
+            }
+
             $src = $content_image->getAttribute( 'src' );
             if ( $src ) {
                 $src_url = esc_url( $src );
@@ -1769,23 +1852,24 @@ function wsi_parse_page( $page_element, $xpath, $page_index ) {
                 if ( !$is_duplicate ) {
                     // Calculate aspect ratio
                     $aspect = ($width && $height) ? $width / $height : 1.5;
-                    $img_width = 0.8; // 80% of screen width
+                    $img_width = 0.8 * WSI_PAGE_WIDTH; // 80% of screen width
                     $img_height = $img_width / $aspect;
                     
                     // Add as content image
                     $page_data['elements'][] = [
                         'id' => $page_id . '-img-' . $element_id_counter++,
                         'type' => 'image',
-                        'x' => 0.1, // 10% from left
-                        'y' => 0.4, // 40% from top
-                        'width' => $img_width,
-                        'height' => $img_height,
+                        'x' => 0.1 * WSI_PAGE_WIDTH, // 10% from left
+                        'y' => 0.4 * WSI_PAGE_HEIGHT, // 40% from top
+                        'width' => round($img_width),
+                        'height' => round($img_height),
                         'resource' => [
                             'id' => $attachment_id ? $attachment_id : 0,
                             'src' => $src_url,
+                            'alt' => esc_attr( $content_image->getAttribute('alt') ),
+                            'mimeType' => 'image/' . strtolower(pathinfo($src, PATHINFO_EXTENSION)), // Basic guess
                             'width' => $width ?: 400,
                             'height' => $height ?: 300,
-                            'mimeType' => 'image/' . strtolower( pathinfo( $src_url, PATHINFO_EXTENSION ) )
                         ],
                         'scale' => 100,
                         'focalX' => 50,
@@ -1817,7 +1901,7 @@ function wsi_parse_page( $page_element, $xpath, $page_index ) {
         }
         
         // Position for h1 elements - usually at bottom of page on cover
-        $y_position = 0.8 + (0.03 * $index);
+        $y_position = 0.8 * WSI_PAGE_HEIGHT + (0.03 * $index * WSI_PAGE_HEIGHT);
             
         // Always use h1 for the original h1 elements
         $page_data['elements'][] = [
@@ -1825,10 +1909,10 @@ function wsi_parse_page( $page_element, $xpath, $page_index ) {
             'type' => 'text',
             'tagName' => 'h1',
             'content' => $text_element->textContent,
-            'x' => 0.05, // 5% from left
+            'x' => 0.05 * WSI_PAGE_WIDTH, // 5% from left
             'y' => $y_position,
-            'width' => 0.9, // 90% width 
-            'height' => 0.1,
+            'width' => 0.9 * WSI_PAGE_WIDTH, // 90% width 
+            'height' => 0.1 * WSI_PAGE_HEIGHT,
             'font' => [
                 'family' => 'Roboto',
                 'service' => 'fonts.google.com',
@@ -1860,7 +1944,7 @@ function wsi_parse_page( $page_element, $xpath, $page_index ) {
         }
         
         // Position for h2 elements - usually at bottom of page
-        $y_position = 0.8 + (0.03 * $index);
+        $y_position = 0.8 * WSI_PAGE_HEIGHT + (0.03 * $index * WSI_PAGE_HEIGHT);
             
         // Always use h2 for the original h2 elements
         $page_data['elements'][] = [
@@ -1868,10 +1952,10 @@ function wsi_parse_page( $page_element, $xpath, $page_index ) {
             'type' => 'text',
             'tagName' => 'h2', 
             'content' => $text_element->textContent,
-            'x' => 0.05, // 5% from left
+            'x' => 0.05 * WSI_PAGE_WIDTH, // 5% from left
             'y' => $y_position,
-            'width' => 0.9, // 90% width
-            'height' => 0.1,
+            'width' => 0.9 * WSI_PAGE_WIDTH, // 90% width
+            'height' => 0.1 * WSI_PAGE_HEIGHT,
             'font' => [
                 'family' => 'Roboto',
                 'service' => 'fonts.google.com',
@@ -1905,7 +1989,7 @@ function wsi_parse_page( $page_element, $xpath, $page_index ) {
         // Position text below any headings with appropriate spacing
         // For paragraphs, position them below any headings
         $h_elements_count = $h1_elements->length + $h2_elements->length;
-        $y_position = 0.88 + (0.03 * $index);
+        $y_position = 0.88 * WSI_PAGE_HEIGHT + (0.03 * $index * WSI_PAGE_HEIGHT);
         
         // Always use p for the original p elements
         $page_data['elements'][] = [
@@ -1913,13 +1997,13 @@ function wsi_parse_page( $page_element, $xpath, $page_index ) {
             'type' => 'text',
             'tagName' => 'p',
             'content' => $text_element->textContent,
-            'x' => 0.05, // 5% from left
+            'x' => 0.05 * WSI_PAGE_WIDTH, // 5% from left
             'y' => $y_position,
-            'width' => 0.9, // 90% width
-            'height' => 0.1,
+            'width' => 0.9 * WSI_PAGE_WIDTH, // 90% width
+            'height' => 0.1 * WSI_PAGE_HEIGHT,
             'font' => [
                 'family' => 'Roboto',
-                'service' => 'fonts.google.com',
+                'service' => 'fonts.google.com', // Assume Google Fonts for now
                 'fallbacks' => ['sans-serif'],
                 'weight' => $font_weight
             ],
