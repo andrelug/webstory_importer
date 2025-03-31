@@ -1,0 +1,389 @@
+/**
+ * Web Story Importer Admin Styles
+ * Version: 1.0.25
+ */
+
+/* Overall Admin Styling */
+.wsi-admin {
+    max-width: 1200px;
+    margin: 20px auto;
+}
+
+/* Tabs Styling */
+.wsi-tabs {
+    margin-bottom: 20px;
+    border-bottom: 1px solid #ccc;
+}
+
+.wsi-tab {
+    display: inline-block;
+    margin: 0 10px 0 0;
+    padding: 8px 15px;
+    border: 1px solid #ccc;
+    border-bottom: none;
+    background: #f1f1f1;
+    text-decoration: none;
+    color: #555;
+    font-weight: 500;
+    border-radius: 3px 3px 0 0;
+    transition: all 0.2s ease;
+}
+
+.wsi-tab:hover {
+    background: #fff;
+    color: #0073aa;
+}
+
+.wsi-tab.active {
+    background: #fff;
+    color: #0073aa;
+    border-bottom: 1px solid #fff;
+    margin-bottom: -1px;
+}
+
+/* Card Styling */
+.wsi-card {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    margin-bottom: 25px;
+    padding: 25px;
+    transition: all 0.3s ease;
+}
+
+.wsi-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.wsi-import-card {
+    border-top: 4px solid #2271b1;
+}
+
+.wsi-help-card {
+    background: #f9f9f9;
+    border-left: 4px solid #646970;
+}
+
+.wsi-card h2 {
+    margin-top: 0;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+    color: #1d2327;
+    font-size: 1.5em;
+    font-weight: 600;
+}
+
+.wsi-card h3 {
+    margin-top: 0;
+    color: #1d2327;
+    font-size: 1.3em;
+    font-weight: 500;
+}
+
+.wsi-intro-text {
+    font-size: 14px;
+    color: #50575e;
+    margin-bottom: 20px;
+}
+
+/* Form Styling */
+.wsi-import-form {
+    padding: 5px 0;
+}
+
+.wsi-form-group {
+    margin-bottom: 20px;
+}
+
+.wsi-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #1d2327;
+}
+
+.wsi-file-input-wrapper {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.wsi-file-input-container {
+    flex: 1;
+    position: relative;
+    height: 40px;
+    border: 1px dashed #c3c4c7;
+    border-radius: 4px;
+    background: #f6f7f7;
+    margin-right: 15px;
+    padding: 0 15px;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.wsi-file-input-container:hover {
+    border-color: #2271b1;
+    background: #f0f6fc;
+}
+
+.wsi-file-input {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.wsi-file-preview {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: #50575e;
+}
+
+.wsi-file-button {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 15px;
+    background: #2271b1;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.wsi-file-button:hover {
+    background: #135e96;
+}
+
+.wsi-file-button .dashicons {
+    margin-right: 5px;
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+}
+
+.wsi-url-input-wrapper {
+    position: relative;
+    margin-bottom: 10px;
+}
+
+.wsi-url-input-wrapper .dashicons {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #646970;
+}
+
+.wsi-url-input-wrapper input[type="url"] {
+    width: 100%;
+    padding: 8px 12px 8px 35px;
+    height: 40px;
+    font-size: 14px;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    background: #f6f7f7;
+    transition: all 0.2s ease;
+}
+
+.wsi-url-input-wrapper input[type="url"]:focus {
+    border-color: #2271b1;
+    outline: none;
+    box-shadow: 0 0 0 1px #2271b1;
+    background: #fff;
+}
+
+.wsi-submit-container {
+    margin-top: 25px;
+}
+
+.wsi-submit-button {
+    display: inline-flex !important;
+    align-items: center;
+    padding: 8px 20px !important;
+    font-size: 14px !important;
+    height: auto !important;
+    min-height: 40px;
+}
+
+.wsi-submit-button .dashicons {
+    margin-right: 8px;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+}
+
+/* Status messages */
+.wsi-status-message {
+    padding: 10px 15px;
+    margin: 0 0 20px 0;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1.4;
+    border-left: 4px solid transparent;
+}
+
+.wsi-status-message.wsi-error {
+    background-color: #fcf0f1;
+    border-left-color: #d63638;
+    color: #2c3338;
+}
+
+.wsi-status-message.wsi-success {
+    background-color: #ecf7ed;
+    border-left-color: #00a32a;
+    color: #2c3338;
+}
+
+/* Progress Bar */
+.wsi-import-progress {
+    margin: 20px 0;
+    background: #f6f7f7;
+    border-radius: 4px;
+    padding: 15px;
+    border: 1px solid #e5e7eb;
+}
+
+.wsi-progress-bar {
+    height: 10px;
+    background: #e5e7eb;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.wsi-progress-bar-inner {
+    height: 100%;
+    background: #2271b1;
+    width: 0;
+    border-radius: 5px;
+    transition: width 0.3s ease;
+}
+
+.wsi-progress-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #50575e;
+    font-size: 13px;
+}
+
+/* Help Steps */
+.wsi-help-steps {
+    padding-left: 0;
+    margin-top: 15px;
+}
+
+.wsi-help-steps li {
+    display: flex;
+    margin-bottom: 15px;
+    align-items: flex-start;
+}
+
+.wsi-step-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: #2271b1;
+    color: #fff;
+    border-radius: 50%;
+    font-weight: 600;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+.wsi-step-text {
+    padding-top: 4px;
+    line-height: 1.5;
+}
+
+/* Table Styling */
+.wsi-stories-table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 20px;
+}
+
+.wsi-stories-table th {
+    text-align: left;
+    padding: 12px;
+    border-bottom: 2px solid #e2e4e7;
+    font-weight: 600;
+}
+
+.wsi-stories-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e2e4e7;
+    vertical-align: middle;
+}
+
+.wsi-status {
+    display: inline-flex;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.wsi-status-completed {
+    background: #e6f6e6;
+    color: #18981d;
+}
+
+.wsi-status-error, .wsi-status-failed {
+    background: #f9e2e2;
+    color: #cc1818;
+}
+
+.wsi-status-pending {
+    background: #f8f0d9;
+    color: #986c00;
+}
+
+.wsi-error-info {
+    margin-left: 5px;
+    color: #787c82;
+    cursor: help;
+}
+
+.wsi-actions {
+    width: 150px;
+}
+
+.wsi-actions .button {
+    margin-right: 5px;
+}
+
+/* Pagination */
+.wsi-pagination {
+    margin-top: 20px;
+    text-align: center;
+}
+
+/* Responsive Adjustments */
+@media screen and (max-width: 782px) {
+    .wsi-file-input-wrapper {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .wsi-file-input-container {
+        margin-right: 0;
+        margin-bottom: 10px;
+    }
+    
+    .wsi-file-button {
+        text-align: center;
+    }
+}

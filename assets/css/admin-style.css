@@ -1,0 +1,173 @@
+/**
+ * Web Story Importer Admin Styles
+ * Version: 1.0.19
+ */
+
+/* Overall Admin Styling */
+.wsi-admin {
+    max-width: 1200px;
+    margin: 20px auto;
+}
+
+/* Card Styling */
+.wsi-card {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+    margin-bottom: 20px;
+    padding: 20px;
+}
+
+.wsi-card h2 {
+    margin-top: 0;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #eee;
+    color: #23282d;
+    font-size: 1.4em;
+}
+
+.wsi-card h3 {
+    margin-top: 0;
+    color: #23282d;
+    font-size: 1.2em;
+}
+
+/* Tabs Section Styling */
+.wsi-tab-section {
+    padding: 20px 0;
+}
+
+/* Form Styling */
+.wsi-form-group {
+    margin-bottom: 15px;
+}
+
+.wsi-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.wsi-file-input-container {
+    margin: 10px 0;
+}
+
+.wsi-file-input {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    padding: 10px;
+    width: 100%;
+}
+
+.wsi-text-input {
+    min-width: 350px;
+}
+
+.wsi-submit {
+    margin-top: 10px !important;
+}
+
+/* Table of Imported Stories */
+.wsi-stories-table {
+    width: 100%;
+    margin-top: 15px;
+}
+
+.wsi-stories-table th {
+    font-weight: 600;
+}
+
+.wsi-actions {
+    text-align: right;
+}
+
+.wsi-actions .button {
+    margin-left: 5px;
+}
+
+/* Status Indicators */
+.wsi-status {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.wsi-status-completed {
+    background-color: #dff0d8;
+    color: #3c763d;
+}
+
+.wsi-status-processing {
+    background-color: #fcf8e3;
+    color: #8a6d3b;
+}
+
+.wsi-status-error {
+    background-color: #f2dede;
+    color: #a94442;
+}
+
+.wsi-error-info {
+    cursor: help;
+    vertical-align: middle;
+    color: #a94442;
+}
+
+/* Empty State */
+.wsi-empty-state {
+    text-align: center;
+    padding: 30px 0;
+}
+
+.wsi-empty-state p {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+/* Pagination */
+.wsi-pagination {
+    margin-top: 20px;
+    text-align: right;
+}
+
+.wsi-pagination .page-numbers {
+    display: inline-block;
+    min-width: 28px;
+    min-height: 28px;
+    line-height: 28px;
+    text-align: center;
+    background: #f7f7f7;
+    border: 1px solid #ddd;
+    text-decoration: none;
+    color: #32373c;
+    margin-left: 5px;
+}
+
+.wsi-pagination .page-numbers.current {
+    background: #0073aa;
+    color: #fff;
+    border-color: #0073aa;
+}
+
+/* Responsive Adjustments */
+@media screen and (max-width: 782px) {
+    .wsi-text-input {
+        min-width: 100%;
+    }
+    
+    .wsi-stories-table th:nth-child(3),
+    .wsi-stories-table td:nth-child(3) {
+        display: none;
+    }
+}
+
+@media screen and (max-width: 600px) {
+    .wsi-stories-table th:nth-child(2),
+    .wsi-stories-table td:nth-child(2) {
+        display: none;
+    }
+}
