@@ -1,15 +1,14 @@
 <?php
 /**
  * Plugin Name: Web Story Importer
- * Plugin URI: https://github.com/adamizer/web-story-importer
+ * Plugin URI: https://github.com/andrelug/webstory_importer
  * Description: Import Web Stories from various formats into the Google Web Stories plugin
- * Version: 1.0.38
- * Author: Adam Zielinski
- * Author URI: https://adamizer.com
- * License: GPL-2.0+
+ * Version: 1.1.0
+ * Author: André Lug
+ * Author URI: https://andrelug.com
+ * License: GPL-2.0+    
  * License URI: http://www.gnu.org/licenses/gpl-2.0.txt
  * Text Domain: web-story-importer
- * Domain Path: /languages
  */
 
 // If this file is called directly, abort.
@@ -17,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
 }
 
-define( 'WSI_VERSION', '1.0.38' );
+define( 'WSI_VERSION', '1.1.0' );
 define( 'WSI_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WSI_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'WSI_PLUGIN_FILE', __FILE__ );
@@ -25,6 +24,7 @@ define( 'WSI_PLUGIN_FILE', __FILE__ );
 // Include required files
 require_once WSI_PLUGIN_DIR . 'includes/functions.php';
 require_once WSI_PLUGIN_DIR . 'includes/admin-page.php';
+require_once WSI_PLUGIN_DIR . 'includes/api.php';
 
 /**
  * Load plugin textdomain.

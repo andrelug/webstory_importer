@@ -21,19 +21,12 @@ function wsi_add_admin_menu() {
 add_action( 'admin_menu', 'wsi_add_admin_menu' );
 
 /**
- * Register the imported stories meta table.
- */
-function wsi_register_imported_stories_meta() {
-    global $wpdb;
-}
-add_action('init', 'wsi_register_imported_stories_meta');
-
-/**
  * Create the imported stories tracking table during plugin activation.
  */
 function wsi_create_imported_stories_table() {
     global $wpdb;
     
+    $table_name = $wpdb->prefix . 'wsi_imported_stories';
     $charset_collate = $wpdb->get_charset_collate();
     
     $sql = "CREATE TABLE $table_name (
@@ -94,6 +87,9 @@ function wsi_render_admin_page() {
             <a href="<?php echo esc_url(add_query_arg('tab', 'imported', remove_query_arg('paged'))); ?>" class="nav-tab <?php echo $active_tab == 'imported' ? 'nav-tab-active' : ''; ?>">
                 <?php esc_html_e('Imported Stories', 'web-story-importer'); ?>
             </a>
+            <a href="<?php echo esc_url(add_query_arg('tab', 'api', remove_query_arg('paged'))); ?>" class="nav-tab <?php echo $active_tab == 'api' ? 'nav-tab-active' : ''; ?>">
+                <?php esc_html_e('API Documentation', 'web-story-importer'); ?>
+            </a>
         </nav>
         
         <div class="tab-content">
@@ -101,6 +97,9 @@ function wsi_render_admin_page() {
             switch ($active_tab) {
                 case 'imported':
                     wsi_render_imported_stories_tab();
+                    break;
+                case 'api':
+                    wsi_render_api_documentation_tab();
                     break;
                 case 'import':
                 default:
@@ -191,23 +190,23 @@ function wsi_render_import_tab() {
 function wsi_render_imported_stories_tab() {
     global $wpdb;
     
+    $table_name = $wpdb->prefix . 'wsi_imported_stories';
+    
     // Pagination setup
     $per_page = 10;
     $current_page = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
     $offset = ($current_page - 1) * $per_page;
     
     // Get total records for pagination
-    $total_items = $wpdb->get_var("SELECT COUNT(*) FROM $wpdb->prefix . 'wsi_imported_stories'");
+    $total_items = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table_name}" ) );
     $total_pages = ceil($total_items / $per_page);
     
     // Get imported stories
-    $imported_stories = $wpdb->get_results(
-        $wpdb->prepare(
-            "SELECT * FROM $wpdb->prefix . 'wsi_imported_stories' ORDER BY import_date DESC LIMIT %d, %d",
-            $offset,
-            $per_page
-        )
-    );
+    $imported_stories = $wpdb->get_results( $wpdb->prepare(
+        "SELECT * FROM {$table_name} ORDER BY import_date DESC LIMIT %d OFFSET %d",
+        $per_page,
+        $offset
+    ) );
     
     ?>
     <div class="wsi-tab-section">
@@ -294,6 +293,259 @@ function wsi_render_imported_stories_tab() {
                     </div>
                 <?php endif; ?>
             <?php endif; ?>
+        </div>
+    </div>
+    <?php
+}
+
+/**
+ * Render the API Documentation tab.
+ */
+function wsi_render_api_documentation_tab() {
+    $site_url = get_site_url();
+    $endpoint = $site_url . '/wp-json/web-story-importer/v1/import';
+    ?>
+    <div class="wsi-tab-section">
+        <div class="wsi-card wsi-api-card">
+            <h2><?php esc_html_e('REST API Documentation', 'web-story-importer'); ?></h2>
+            <p class="wsi-intro-text">
+                <?php esc_html_e('Web Story Importer provides a REST API endpoint that allows you to programmatically import Web Stories from ZIP files using external applications or services.', 'web-story-importer'); ?>
+            </p>
+            
+            <div class="wsi-api-section">
+                <h3><?php esc_html_e('Endpoint Information', 'web-story-importer'); ?></h3>
+                <table class="wsi-api-table">
+                    <tr>
+                        <th><?php esc_html_e('Endpoint URL', 'web-story-importer'); ?></th>
+                        <td><code><?php echo esc_html($endpoint); ?></code></td>
+                    </tr>
+                    <tr>
+                        <th><?php esc_html_e('Method', 'web-story-importer'); ?></th>
+                        <td><code>POST</code></td>
+                    </tr>
+                    <tr>
+                        <th><?php esc_html_e('Required Permission', 'web-story-importer'); ?></th>
+                        <td><?php esc_html_e('User must have the "upload_files" capability (typically Editor or Administrator)', 'web-story-importer'); ?></td>
+                    </tr>
+                    <tr>
+                        <th><?php esc_html_e('Authentication', 'web-story-importer'); ?></th>
+                        <td><?php esc_html_e('Requires WordPress authentication (via cookie, basic auth, application password, or OAuth)', 'web-story-importer'); ?></td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="wsi-api-section">
+                <h3><?php esc_html_e('Request Parameters', 'web-story-importer'); ?></h3>
+                <p><?php esc_html_e('The endpoint supports various ways to upload ZIP files:', 'web-story-importer'); ?></p>
+                <table class="wsi-api-table">
+                    <tr>
+                        <th><?php esc_html_e('Method', 'web-story-importer'); ?></th>
+                        <th><?php esc_html_e('Description', 'web-story-importer'); ?></th>
+                    </tr>
+                    <tr>
+                        <td><code>multipart/form-data</code></td>
+                        <td><?php esc_html_e('Standard form upload with file parameter named "file"', 'web-story-importer'); ?></td>
+                    </tr>
+                    <tr>
+                        <td><code>application/zip</code></td>
+                        <td><?php esc_html_e('Direct binary upload with Content-Type: application/zip', 'web-story-importer'); ?></td>
+                    </tr>
+                    <tr>
+                        <td><code>Base64</code></td>
+                        <td><?php esc_html_e('Send base64-encoded file data in the "file_data" parameter', 'web-story-importer'); ?></td>
+                    </tr>
+                </table>
+
+                <h4 class="wsi-mt-4"><?php esc_html_e('Additional Parameters', 'web-story-importer'); ?></h4>
+                <table class="wsi-api-table">
+                    <tr>
+                        <th><?php esc_html_e('Parameter', 'web-story-importer'); ?></th>
+                        <th><?php esc_html_e('Description', 'web-story-importer'); ?></th>
+                        <th><?php esc_html_e('Type', 'web-story-importer'); ?></th>
+                        <th><?php esc_html_e('Default', 'web-story-importer'); ?></th>
+                    </tr>
+                    <tr>
+                        <td><code>post_status</code></td>
+                        <td><?php esc_html_e('Status for the imported story. Use "publish" to make it live immediately or "draft" to save for later editing.', 'web-story-importer'); ?></td>
+                        <td><code>string</code> <small>(draft|publish)</small></td>
+                        <td><code>draft</code></td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="wsi-api-section">
+                <h3><?php esc_html_e('Response Format', 'web-story-importer'); ?></h3>
+                <p><?php esc_html_e('On successful import, the API will return a JSON response with the following structure:', 'web-story-importer'); ?></p>
+                <pre class="wsi-code-block">
+{
+  "success": true,
+  "post_id": 123,
+  "title": "Imported Story Title",
+  "edit_url": "https://your-site.com/wp-admin/post.php?post=123&action=edit",
+  "view_url": "https://your-site.com/web-stories/imported-story-title/",
+  "message": "Web Story successfully imported."
+}</pre>
+            </div>
+            
+            <div class="wsi-api-section">
+                <h3><?php esc_html_e('Error Responses', 'web-story-importer'); ?></h3>
+                <p><?php esc_html_e('The API will return appropriate error codes and messages if something goes wrong:', 'web-story-importer'); ?></p>
+                <ul class="wsi-api-list">
+                    <li><strong>400</strong>: <?php esc_html_e('Invalid request (missing file, wrong file type)', 'web-story-importer'); ?></li>
+                    <li><strong>403</strong>: <?php esc_html_e('Unauthorized access (user doesn\'t have required permissions)', 'web-story-importer'); ?></li>
+                    <li><strong>500</strong>: <?php esc_html_e('Server error during import process', 'web-story-importer'); ?></li>
+                </ul>
+            </div>
+            
+            <div class="wsi-api-section">
+                <h3><?php esc_html_e('Integration with n8n', 'web-story-importer'); ?></h3>
+                <p><?php esc_html_e('To integrate with n8n, follow these steps:', 'web-story-importer'); ?></p>
+                
+                <ol class="wsi-api-list">
+                    <li><?php esc_html_e('Create an HTTP Request node in n8n', 'web-story-importer'); ?></li>
+                    <li><?php esc_html_e('Set the request method to POST', 'web-story-importer'); ?></li>
+                    <li><?php esc_html_e('Set the URL to your endpoint', 'web-story-importer'); ?></li>
+                    <li><?php esc_html_e('Set Authentication to "Basic Auth" and provide WordPress credentials', 'web-story-importer'); ?></li>
+                    <li><?php esc_html_e('For the binary data, select "Send Binary Data" and map the ZIP file from a previous node', 'web-story-importer'); ?></li>
+                    <li><?php esc_html_e('Set the Content-Type header to "application/zip"', 'web-story-importer'); ?></li>
+                </ol>
+                
+                <p><?php esc_html_e('n8n Example Configuration:', 'web-story-importer'); ?></p>
+                <pre class="wsi-code-block">
+// n8n HTTP Request Node Configuration
+{
+  "parameters": {
+    "url": "<?php echo esc_html($endpoint); ?>",
+    "method": "POST",
+    "authentication": "basicAuth",
+    "username": "your-username",
+    "password": "your-password",
+    "sendBinaryData": true,
+    "binaryPropertyName": "data",
+    "headerParameters": {
+      "parameters": [
+        {
+          "name": "Content-Type",
+          "value": "application/zip"
+        }
+      ]
+    }
+  }
+}</pre>
+                <p class="wsi-note"><?php esc_html_e('Note: The "data" property should match the binary property name where your ZIP file is stored.', 'web-story-importer'); ?></p>
+            </div>
+            
+            <div class="wsi-api-section">
+                <h3><?php esc_html_e('Code Examples', 'web-story-importer'); ?></h3>
+                
+                <h4><?php esc_html_e('cURL Example', 'web-story-importer'); ?></h4>
+                <pre class="wsi-code-block">
+curl -X POST \
+  <?php echo esc_html($endpoint); ?> \
+  -H 'Authorization: Basic YWRtaW46cGFzc3dvcmQ=' \
+  -H 'Content-Type: multipart/form-data' \
+  -F 'file=@/path/to/your/story.zip' \
+  -F 'post_status=publish'</pre>
+                
+                <h4><?php esc_html_e('PHP Example', 'web-story-importer'); ?></h4>
+                <pre class="wsi-code-block">
+$request = wp_remote_post(
+    '<?php echo esc_html($endpoint); ?>',
+    [
+        'headers' => [
+            'Authorization' => 'Basic ' . base64_encode('username:password'),
+        ],
+        'body' => [
+            'file' => curl_file_create('/path/to/your/story.zip', 'application/zip', 'story.zip'),
+            'post_status' => 'publish', // Optional: 'draft' (default) or 'publish'
+        ],
+    ]
+);
+
+if (!is_wp_error($request)) {
+    $response = json_decode(wp_remote_retrieve_body($request), true);
+    // Handle response
+    echo "Story imported successfully! ID: " . $response['post_id'];
+}</pre>
+                
+                <h4><?php esc_html_e('JavaScript/Fetch Example', 'web-story-importer'); ?></h4>
+                <pre class="wsi-code-block">
+const formData = new FormData();
+formData.append('file', fileInput.files[0]);
+formData.append('post_status', 'publish'); // Optional: 'draft' (default) or 'publish'
+
+fetch('<?php echo esc_html($endpoint); ?>', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Basic ' + btoa('username:password')
+  },
+  body: formData
+})
+.then(response => response.json())
+.then(data => {
+  console.log('Success:', data);
+  // data.post_id contains the ID of the imported story
+  // data.view_url contains the URL to view the story
+})
+.catch(error => {
+  console.error('Error:', error);
+});</pre>
+
+                <h4><?php esc_html_e('Binary Data Upload Example', 'web-story-importer'); ?></h4>
+                <pre class="wsi-code-block">
+// Read file as binary
+const fileBuffer = fs.readFileSync('/path/to/your/story.zip');
+
+fetch('<?php echo esc_html($endpoint); ?>', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Basic ' + btoa('username:password'),
+    'Content-Type': 'application/zip'
+  },
+  body: fileBuffer
+})
+.then(response => response.json())
+.then(data => console.log('Success:', data))
+.catch(error => console.error('Error:', error));</pre>
+            </div>
+            
+            <div class="wsi-api-section">
+                <h3><?php esc_html_e('Security Considerations', 'web-story-importer'); ?></h3>
+                <ul class="wsi-api-list">
+                    <li><?php esc_html_e('Make sure your WordPress site uses HTTPS', 'web-story-importer'); ?></li>
+                    <li><?php esc_html_e('Consider using application passwords for more secure authentication', 'web-story-importer'); ?></li>
+                    <li><?php esc_html_e('Implement IP restrictions if possible', 'web-story-importer'); ?></li>
+                    <li><?php esc_html_e('Be careful with error messages as they might reveal sensitive information', 'web-story-importer'); ?></li>
+                </ul>
+            </div>
+            
+            <div class="wsi-api-section">
+                <h3><?php esc_html_e('Troubleshooting', 'web-story-importer'); ?></h3>
+                <p><?php esc_html_e('If you encounter issues with the API:', 'web-story-importer'); ?></p>
+                <ul class="wsi-api-list">
+                    <li><?php esc_html_e('Check the debug log at wp-content/uploads/wsi-api-debug.log', 'web-story-importer'); ?></li>
+                    <li><?php esc_html_e('Ensure your ZIP file is properly formatted with an HTML file and assets folder', 'web-story-importer'); ?></li>
+                    <li><?php esc_html_e('Verify authentication credentials are correct', 'web-story-importer'); ?></li>
+                    <li><?php esc_html_e('For n8n, make sure Content-Type is set to "application/zip" when sending binary data', 'web-story-importer'); ?></li>
+                </ul>
+            </div>
+            
+            <div class="wsi-api-section">
+                <h3><?php esc_html_e('Application Passwords', 'web-story-importer'); ?></h3>
+                <p>
+                    <?php 
+                    if (function_exists('wp_is_application_passwords_available') && wp_is_application_passwords_available()) {
+                        $app_password_url = admin_url('profile.php#application-passwords-section');
+                        echo sprintf(
+                            __('For secure API authentication, you can use <a href="%s">Application Passwords</a>, which are specific to your account and can be revoked at any time.', 'web-story-importer'),
+                            esc_url($app_password_url)
+                        );
+                    } else {
+                        echo esc_html__('For secure API authentication, consider installing and activating the Application Passwords feature or using a security plugin that supports token-based authentication.', 'web-story-importer');
+                    } 
+                    ?>
+                </p>
+            </div>
         </div>
     </div>
     <?php

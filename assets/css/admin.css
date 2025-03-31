@@ -371,6 +371,97 @@
     text-align: center;
 }
 
+/* API Documentation */
+.wsi-api-card {
+    border-top: 4px solid #2271b1;
+}
+
+.wsi-api-section {
+    margin-bottom: 30px;
+    padding-bottom: 25px;
+    border-bottom: 1px solid #eee;
+}
+
+.wsi-api-section:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.wsi-api-section h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #1d2327;
+    font-size: 1.2em;
+    font-weight: 600;
+}
+
+.wsi-api-section h4 {
+    margin-top: 20px;
+    margin-bottom: 10px;
+    color: #1d2327;
+    font-size: 1.1em;
+    font-weight: 500;
+}
+
+.wsi-api-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+.wsi-api-table th,
+.wsi-api-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border: 1px solid #e2e4e7;
+    font-size: 14px;
+}
+
+.wsi-api-table th {
+    background: #f6f7f7;
+    font-weight: 600;
+}
+
+.wsi-api-table tr:nth-child(even) td {
+    background-color: #fbfbfc;
+}
+
+.wsi-api-list {
+    margin: 0 0 20px 20px;
+    list-style-type: disc;
+}
+
+.wsi-api-list li {
+    margin-bottom: 8px;
+    line-height: 1.5;
+    font-size: 14px;
+}
+
+.wsi-code-block {
+    background: #f6f7f7;
+    border: 1px solid #e2e4e7;
+    border-radius: 4px;
+    padding: 15px;
+    margin: 15px 0;
+    overflow-x: auto;
+    font-family: monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #3c434a;
+    white-space: pre;
+}
+
+code {
+    background: #f6f7f7;
+    border: 1px solid #e2e4e7;
+    border-radius: 3px;
+    padding: 2px 5px;
+    font-family: monospace;
+    font-size: 13px;
+    color: #3c434a;
+}
+
 /* Responsive Adjustments */
 @media screen and (max-width: 782px) {
     .wsi-file-input-wrapper {

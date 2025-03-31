@@ -130,124 +130,95 @@ function wsi_cleanup_temp_dir( $dir_path ) {
 }
 
 /**
- * Scans the assets directory, uploads media to the WP Media Library,
- * and returns a map of old relative paths to new WP URLs.
+ * Process assets from HTML content and upload them to the media library.
  *
- * @param string|null $assets_dir_path Absolute path to the extracted assets directory. Null if none found.
- * @param string $base_path Absolute path to the directory containing the HTML file and assets dir.
- * @return array|WP_Error An array ['path_map' => [old_rel_path => new_url], 'errors' => [file => error_msg]] on success, or WP_Error on critical failure.
+ * @param string $html_content The HTML content with asset references.
+ * @param string $temp_dir Path to temporary directory containing the extracted ZIP.
+ * @param string $uploads_dir WordPress uploads directory path.
+ * @param string $uploads_url WordPress uploads directory URL.
+ * @return string|WP_Error Modified HTML content with updated asset URLs or WP_Error.
  */
-function wsi_process_assets( $assets_dir_path, $base_path ) {
-    if ( ! $assets_dir_path ) {
-        return ['path_map' => [], 'errors' => []]; // No assets directory found or provided.
+function wsi_process_assets( $html_content, $temp_dir, $uploads_dir, $uploads_url ) {
+    // Check if html_content is a WP_Error
+    if (is_wp_error($html_content)) {
+        return $html_content;
     }
-
-    global $wp_filesystem;
-    if ( ! $wp_filesystem || ! $wp_filesystem->is_dir( $assets_dir_path ) ) {
-        // Filesystem might not be initialized or dir doesn't exist (shouldn't happen if wsi_process_story_zip worked)
-        return new WP_Error( 'assets_dir_error', __( 'Assets directory is not accessible.', 'web-story-importer' ) );
-    }
-
+    
     // Ensure required WordPress media functions are available
     require_once ABSPATH . 'wp-admin/includes/media.php';
     require_once ABSPATH . 'wp-admin/includes/file.php';
     require_once ABSPATH . 'wp-admin/includes/image.php';
-
-    $path_map = [];
-    $upload_errors = [];
-    $allowed_mime_types = get_allowed_mime_types();
-    $allowed_extensions = array_keys( wp_get_mime_types() ); // Get extensions WP knows about
-
-    // Base relative path (e.g., "assets/")
-    $relative_assets_dir_name = basename($assets_dir_path);
-
-    // Recursively get all files in the assets directory
-    $all_files = $wp_filesystem->dirlist( $assets_dir_path, false, true ); // Recursive
-
-    if ( $all_files === false ) {
-         return new WP_Error( 'assets_scan_error', __( 'Could not scan the assets directory.', 'web-story-importer' ) );
+    
+    // Look for the assets directory in the extracted ZIP
+    $assets_dir = trailingslashit($temp_dir) . 'assets';
+    
+    // Create assets directory if it doesn't exist
+    if (!file_exists($assets_dir)) {
+        wp_mkdir_p($assets_dir);
     }
-
-    // Helper function to process nested files from dirlist output
-    function process_files_recursive( $files, $current_path_abs, $current_path_rel, $base_path_abs, &$path_map, &$upload_errors, $allowed_extensions ) {
-        global $wp_filesystem;
-        foreach ( $files as $name => $details ) {
-            $file_abs_path = trailingslashit( $current_path_abs ) . $name;
-            $file_rel_path = trailingslashit( $current_path_rel ) . $name;
-
-            if ( isset( $details['type'] ) && $details['type'] === 'd' && ! empty( $details['files'] ) ) {
-                // Recurse into subdirectory
-                process_files_recursive( $details['files'], $file_abs_path, $file_rel_path, $base_path_abs, $path_map, $upload_errors, $allowed_extensions );
-            } elseif ( isset( $details['type'] ) && $details['type'] === 'f' ) {
-                // It's a file, check extension
-                $file_info = pathinfo( $name );
-                $extension = strtolower( $file_info['extension'] ?? '' );
-
-                if ( in_array( $extension, $allowed_extensions, true ) ) {
-                    // Attempt to upload the file
-                    $filename_for_wp = wp_unique_filename( dirname($file_abs_path), basename($file_abs_path) ); // Ensure unique name in WP
-                    $temp_copy_path = $file_abs_path; // Use directly since it's already in uploads dir
-
-                    $file_data = [
-                        'name'     => $filename_for_wp,
-                        'tmp_name' => $temp_copy_path,
-                        'error'    => 0,
-                        'size'     => $wp_filesystem->size( $temp_copy_path )
-                    ];
-
-                    // Use wp_handle_sideload which takes care of moving the file
-                    // to the correct year/month folder and creating the attachment post
-                    $overrides = array( 'test_form' => false );
-                    $upload_result = wp_handle_sideload( $file_data, $overrides );
-
-                    if ( isset( $upload_result['error'] ) ) {
-                        $upload_errors[ $file_rel_path ] = $upload_result['error'];
-                    } else {
-                        $attachment_url = $upload_result['url'];
-                        $attachment_file = $upload_result['file'];
-                        $attachment_type = $upload_result['type'];
-
-                        // Create the attachment post
-                        $attachment = array(
-                            'guid'           => $attachment_url,
-                            'post_mime_type' => $attachment_type,
-                            'post_title'     => preg_replace( '/\.[^.]+$/', '', basename( $filename_for_wp ) ),
-                            'post_content'   => '',
-                            'post_status'    => 'inherit'
-                        );
-                        $attachment_id = wp_insert_attachment( $attachment, $attachment_file );
-
-                        if ( ! is_wp_error( $attachment_id ) ) {
-                            // Generate attachment metadata (thumbnails, etc.)
-                            $attachment_data = wp_generate_attachment_metadata( $attachment_id, $attachment_file );
-                            wp_update_attachment_metadata( $attachment_id, $attachment_data );
-
-                            // Store the mapping: relative path from zip -> new WP URL
-                            $path_map[ $file_rel_path ] = wp_get_attachment_url( $attachment_id );
-
-                        } else {
-                            $upload_errors[ $file_rel_path ] = __( 'Could not create attachment post.', 'web-story-importer' ) . ' ' . $attachment_id->get_error_message();
-                             // Clean up the file if attachment creation failed
-                             $wp_filesystem->delete($attachment_file);
-                        }
-                    }
-                } // end if allowed extension
-            } // end if file
+    
+    if (!is_dir($assets_dir) || !is_readable($assets_dir)) {
+        // Try alternate "asset" directory (singular)
+        $assets_dir = trailingslashit($temp_dir) . 'asset';
+        if (!is_dir($assets_dir) || !is_readable($assets_dir)) {
+            // If still no assets directory, just return the HTML content unchanged
+            // Not all web stories have assets, so this isn't necessarily an error
+            return $html_content;
         }
     }
-
-    // Start processing from the assets directory
-    process_files_recursive( $all_files, $assets_dir_path, $relative_assets_dir_name, $base_path, $path_map, $upload_errors, $allowed_extensions );
-
-    return [
-        'path_map' => $path_map,
-        'errors' => $upload_errors
-    ];
-
+    
+    // Process image assets
+    $doc = new DOMDocument();
+    libxml_use_internal_errors(true);
+    $doc->loadHTML($html_content);
+    libxml_use_internal_errors(false);
+    
+    $xpath = new DOMXPath($doc);
+    $images = $xpath->query('//img');
+    $assets_map = array();
+    
+    foreach ($images as $img) {
+        $src = $img->getAttribute('src');
+        
+        // Skip already absolute URLs or data URLs
+        if (preg_match('/^(https?:\/\/|data:)/', $src)) {
+            continue;
+        }
+        
+        // Build the path to the asset
+        $asset_path = $temp_dir . '/' . ltrim($src, '/');
+        
+        // Check if the file exists
+        if (file_exists($asset_path)) {
+            // Upload to media library
+            $file_array = array(
+                'name' => basename($asset_path),
+                'tmp_name' => $asset_path,
+                'error' => 0,
+                'size' => filesize($asset_path)
+            );
+            
+            // Use WordPress's file handling functions
+            $attachment_id = media_handle_sideload($file_array, 0);
+            
+            if (!is_wp_error($attachment_id)) {
+                // Get the new URL
+                $new_url = wp_get_attachment_url($attachment_id);
+                $assets_map[$src] = $new_url;
+            }
+        }
+    }
+    
+    // Replace all asset URLs in the HTML content
+    foreach ($assets_map as $old_src => $new_url) {
+        $html_content = str_replace($old_src, $new_url, $html_content);
+    }
+    
+    return $html_content;
 }
 
 /**
- * Processes the HTML file content, replacing local asset paths with WP Media Library URLs.
+ * Process the HTML file content, replacing local asset paths with WP Media Library URLs.
  *
  * @param string $html_file_path Absolute path to the HTML file.
  * @param array $path_map Mapping of old relative asset paths to new WP URLs.
@@ -393,6 +364,11 @@ function wsi_process_html( $html_file_path, $path_map ) {
  * @return string JSON string representing the story data.
  */
 function wsi_convert_html_to_story_json( $html_content ) {
+    // Check if html_content is a WP_Error
+    if (is_wp_error($html_content)) {
+        return '{}'; // Return empty JSON object if there's an error
+    }
+
     // Load the HTML content
     $doc = new DOMDocument();
     libxml_use_internal_errors( true );
@@ -809,10 +785,11 @@ function wsi_parse_css_time( $time_string ) {
  *
  * @param string $html_content The processed HTML content (for post_content).
  * @param string $story_json   The JSON string for the story structure (for post_content_filtered).
- * @param string $original_html_path The path to the original uploaded HTML file (used for title fallback).
+ * @param string $original_filename The path to the original uploaded HTML file (used for title fallback).
+ * @param string $post_status The status of the post (draft or publish).
  * @return int|WP_Error The new post ID on success, or WP_Error on failure.
  */
-function wsi_create_story_post( $html_content, $story_json, $original_html_path ) {
+function wsi_create_web_story_post_v2( $html_content, $story_json, $original_filename, $post_status = 'draft' ) {
     if ( ! function_exists( 'wp_insert_post' ) ) {
         return new WP_Error( 'missing_wp_insert_post', __( 'WordPress function wp_insert_post is not available.', 'web-story-importer' ) );
     }
@@ -828,8 +805,8 @@ function wsi_create_story_post( $html_content, $story_json, $original_html_path 
         }
     }
     // Fallback to filename if title couldn't be parsed or was empty
-    if ( $post_title === __( 'Imported Web Story', 'web-story-importer' ) && ! empty( $original_html_path ) ) {
-        $filename = basename( $original_html_path );
+    if ( $post_title === __( 'Imported Web Story', 'web-story-importer' ) && ! empty( $original_filename ) ) {
+        $filename = basename( $original_filename );
         // Remove extension
         $filename_without_ext = pathinfo( $filename, PATHINFO_FILENAME );
         if ( ! empty( $filename_without_ext ) ) {
@@ -845,7 +822,7 @@ function wsi_create_story_post( $html_content, $story_json, $original_html_path 
     $story_data = json_decode($story_json, true);
     if (json_last_error() === JSON_ERROR_NONE && !empty($story_data) && is_array($story_data)) {
         // Ensure version is updated
-        $story_data['version'] = 57;
+        $story_data['version'] = 47;
         
         // Ensure title is set
         if (empty($story_data['title'])) {
@@ -884,29 +861,15 @@ function wsi_create_story_post( $html_content, $story_json, $original_html_path 
                         // Fix image asset references
                         if ($element['type'] === 'image' && !empty($element['resource']['src'])) {
                             $src = $element['resource']['src'];
-                            // Process any image source, not just those starting with assets/
-                            $element['resource']['src'] = wsi_fix_asset_url($src);
-                            
-                            // Make sure poster images are also fixed
-                            if (!empty($element['resource']['poster'])) {
-                                $element['resource']['poster'] = wsi_fix_asset_url($element['resource']['poster']);
+                            if (strpos($src, 'assets/') === 0) {
+                                // Try to find a matching uploaded asset
+                                $element['resource']['src'] = wsi_fix_asset_url($src);
                             }
                         }
-
-                        // Fix text element color format
-if ($element['type'] === 'text' && isset($element['color']) && is_string($element['color'])) {
-    $element['color'] = ['color' => $element['color']];
-}
                         
                         // Fix text element color format
-                        if ($element['type'] === 'video' && !empty($element['resource']['src'])) {
-                            $src = $element['resource']['src'];
-                            $element['resource']['src'] = wsi_fix_asset_url($src);
-                            
-                            // Fix poster image for videos
-                            if (!empty($element['resource']['poster'])) {
-                                $element['resource']['poster'] = wsi_fix_asset_url($element['resource']['poster']);
-                            }
+                        if ($element['type'] === 'text' && isset($element['color']) && is_string($element['color'])) {
+                            $element['color'] = ['color' => $element['color']];
                         }
                         
                         // Fix backgroundColor format for elements
@@ -947,7 +910,7 @@ if ($element['type'] === 'text' && isset($element['color']) && is_string($elemen
         'post_title'    => sanitize_text_field( $post_title ),
         'post_content'  => $html_content, // wp_kses_post might be too strict here initially? Let GWS handle it.
         'post_content_filtered' => $story_json, // The crucial JSON data for the editor
-        'post_status'   => 'draft',        // Start as draft for review
+        'post_status'   => $post_status,        // Start as draft for review
         'post_type'     => 'web-story',    // Google Web Stories post type
         'post_author'   => get_current_user_id(),
         // Add other meta or taxonomy if needed later
@@ -1117,8 +1080,13 @@ function wsi_import_remote_asset($url) {
         'name'     => basename($url),
         'tmp_name' => $temp_file,
         'error'    => 0,
-        'size'     => filesize($temp_file),
+        'size'     => filesize($temp_file)
     );
+    
+    // Create a copy for sideloading
+    $temp_file = wp_tempnam(basename($url));
+    copy($temp_file, $temp_file);
+    $file_array['tmp_name'] = $temp_file;
     
     // Move the temporary file into the uploads directory
     $file = wp_handle_sideload(
@@ -1147,6 +1115,10 @@ function wsi_import_remote_asset($url) {
         require_once(ABSPATH . 'wp-admin/includes/image.php');
         $attachment_data = wp_generate_attachment_metadata($attachment_id, $file['file']);
         wp_update_attachment_metadata($attachment_id, $attachment_data);
+        
+        // Store the mapping: relative path from zip -> new WP URL
+        $relative_path = 'assets/' . basename($url);
+        $imported_assets[$relative_path] = $attachment_id;
         
         return $attachment_id;
     }
@@ -1244,9 +1216,10 @@ function wsi_get_directory_files($dir_path, $extensions = array()) {
  * @param string $html_content The processed HTML content (for post_content).
  * @param string $story_json   The JSON string for the story structure (for post_content_filtered).
  * @param string $original_filename The path to the original uploaded HTML file (used for title fallback).
+ * @param string $post_status The status of the post (draft or publish).
  * @return int|WP_Error The new post ID on success, or WP_Error on failure.
  */
-function wsi_create_web_story_post( $html_content, $story_json, $original_filename ) {
+function wsi_create_web_story_post( $html_content, $story_json, $original_filename, $post_status = 'draft' ) {
     if ( ! function_exists( 'wp_insert_post' ) ) {
         return new WP_Error( 'missing_wp_insert_post', __( 'WordPress function wp_insert_post is not available.', 'web-story-importer' ) );
     }
@@ -1297,7 +1270,7 @@ function wsi_create_web_story_post( $html_content, $story_json, $original_filena
                     }
                     // Case 2: If it has a 'color' key that's a string, leave it as is
                     else if (isset($page['backgroundColor']['color']) && is_string($page['backgroundColor']['color'])) {
-                        // Nothing to do, format is already correct
+                        // Already in the correct format
                     }
                     // Case 3: If it has a 'color' key that's not a string and not an array
                     else if (isset($page['backgroundColor']['color']) && !is_array($page['backgroundColor']['color']) && !is_string($page['backgroundColor']['color'])) {
@@ -1367,7 +1340,7 @@ function wsi_create_web_story_post( $html_content, $story_json, $original_filena
         'post_title'    => sanitize_text_field( $post_title ),
         'post_content'  => $html_content, // wp_kses_post might be too strict here initially? Let GWS handle it.
         'post_content_filtered' => $story_json, // The crucial JSON data for the editor
-        'post_status'   => 'draft',        // Start as draft for review
+        'post_status'   => $post_status,        // Start as draft for review
         'post_type'     => 'web-story',    // Google Web Stories post type
         'post_author'   => get_current_user_id(),
         // Add other meta or taxonomy if needed later
@@ -1540,9 +1513,15 @@ function wsi_delete_imported_story($id) {
  * Import a Web Story from a ZIP file.
  *
  * @param string $file_path Path to the ZIP file.
+ * @param string $post_status Status to use for the imported story (draft or publish). Default is 'draft'.
  * @return int|WP_Error Post ID on success, WP_Error on failure.
  */
-function wsi_import_web_story( $file_path ) {
+function wsi_import_web_story( $file_path, $post_status = 'draft' ) {
+    // Validate post status
+    if ( ! in_array( $post_status, array( 'draft', 'publish' ) ) ) {
+        $post_status = 'draft'; // Default to draft if invalid status is provided
+    }
+    
     // Check if the file exists.
     if ( ! file_exists( $file_path ) ) {
         return new WP_Error( 'file_not_found', __( 'ZIP file not found.', 'web-story-importer' ) );
@@ -1583,19 +1562,20 @@ function wsi_import_web_story( $file_path ) {
 
     // Process and upload assets.
     $html_content = wsi_process_assets( $html_content, $temp_dir, $uploads_dir, $uploads_url );
+    
+    // Check if html_content is an error
+    if (is_wp_error($html_content)) {
+        return $html_content; // Return the error
+    }
 
+    // Create a story JSON from the HTML content
+    $story_json = wsi_convert_html_to_story_json( $html_content );
+    
     // Create a new Web Story post.
-    $post_id = wsi_create_web_story_post( $html_content );
+    $post_id = wsi_create_web_story_post_v2( $html_content, $story_json, $file_path, $post_status );
 
-    // Create the story content and metadata from HTML.
-    $story_data = wsi_create_story_content( $html_content, $post_id );
-    
-    // DEBUG: Log the story data to a file
-    $debug_log_file = $upload_dir['basedir'] . '/wsi-debug-log-' . time() . '.json';
-    file_put_contents($debug_log_file, json_encode($story_data, JSON_PRETTY_PRINT));
-    
     // Clean up temporary directory.
-    wsi_remove_directory( $temp_dir );
+    wsi_delete_directory( $temp_dir );
 
     return $post_id;
 }
@@ -1628,7 +1608,7 @@ function wsi_import_assets($assets_dir) {
             'name'     => basename($file_path),
             'tmp_name' => $file_path,
             'error'    => 0,
-            'size'     => filesize($file_path),
+            'size'     => filesize($file_path)
         );
         
         // Create a copy for sideloading
@@ -1664,7 +1644,7 @@ function wsi_import_assets($assets_dir) {
             $attachment_data = wp_generate_attachment_metadata($attachment_id, $file['file']);
             wp_update_attachment_metadata($attachment_id, $attachment_data);
             
-            // Store the relative path and attachment ID
+            // Store the mapping: relative path from zip -> new WP URL
             $relative_path = 'assets/' . basename($file_path);
             $imported_assets[$relative_path] = $attachment_id;
         }
@@ -1754,7 +1734,7 @@ function wsi_parse_page( $page_element, $xpath, $page_index ) {
                                 'id' => $attachment_id ? $attachment_id : 0,
                                 'src' => $src_url,
                                 'alt' => esc_attr( $bg_image->getAttribute('alt') ),
-                                'mimeType' => 'image/' . strtolower(pathinfo($src, PATHINFO_EXTENSION)), // Basic guess
+                                'mimeType' => 'image/' . strtolower(pathinfo($bg_image->getAttribute('src'), PATHINFO_EXTENSION)), // Basic guess
                                 'width' => $width,
                                 'height' => $height,
                             ],
@@ -1867,7 +1847,7 @@ function wsi_parse_page( $page_element, $xpath, $page_index ) {
                             'id' => $attachment_id ? $attachment_id : 0,
                             'src' => $src_url,
                             'alt' => esc_attr( $content_image->getAttribute('alt') ),
-                            'mimeType' => 'image/' . strtolower(pathinfo($src, PATHINFO_EXTENSION)), // Basic guess
+                            'mimeType' => 'image/' . strtolower(pathinfo($content_image->getAttribute('src'), PATHINFO_EXTENSION)), // Basic guess
                             'width' => $width ?: 400,
                             'height' => $height ?: 300,
                         ],
@@ -1897,7 +1877,8 @@ function wsi_parse_page( $page_element, $xpath, $page_index ) {
         
         // If it has page-title class, apply specific styling
         if ( $class_name && strpos( $class_name, 'page-title' ) !== false ) {
-            $font_size = 56;
+            $font_size = ($tag_name === 'h1') ? 56 : 44; // Redundant based on tag default, but example
+            $font_weight = 700;
         }
         
         // Position for h1 elements - usually at bottom of page on cover
@@ -2076,4 +2057,38 @@ function wsi_import_assets_from_url($html_content, $base_url) {
     }
     
     return $imported_assets;
+}
+
+/**
+ * Find the main HTML file in a directory.
+ *
+ * @param string $dir_path Path to the directory to search in.
+ * @return string|false Path to the main HTML file, or false if not found.
+ */
+function wsi_find_main_html_file( $dir_path ) {
+    // Priority filenames to look for
+    $priority_files = array(
+        'index.html',
+        'story.html',
+        'webstory.html',
+        'main.html'
+    );
+
+    // First, check for priority filenames
+    foreach ( $priority_files as $filename ) {
+        $file_path = trailingslashit( $dir_path ) . $filename;
+        if ( file_exists( $file_path ) ) {
+            return $file_path;
+        }
+    }
+
+    // If priority files not found, look for any HTML file
+    $html_files = wsi_get_directory_files( $dir_path, array( 'html', 'htm' ) );
+    
+    if ( ! empty( $html_files ) ) {
+        // Return the first HTML file found
+        return $html_files[0];
+    }
+
+    return false;
 }
