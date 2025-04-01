@@ -3,7 +3,7 @@
  * Plugin Name: Web Story Importer
  * Plugin URI: https://github.com/andrelug/webstory_importer
  * Description: Import Web Stories from various formats into the Google Web Stories plugin
- * Version: 1.1.0
+ * Version: 1.1.1
  * Author: André Lug
  * Author URI: https://andrelug.com
  * License: GPL-2.0+    

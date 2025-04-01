@@ -699,7 +699,7 @@ function wsi_handle_upload_action() {
     
     // Create the story post using the original HTML content and story JSON
     $story_json = wp_json_encode($story_data);
-    $post_id = wsi_create_story_post($html_content, $story_json, $html_file);
+    $post_id = wsi_create_web_story_post_v2($html_content, $story_json, $html_file);
     
     // Track import in our database using wsi_log_imported_story function
     wsi_log_imported_story(
